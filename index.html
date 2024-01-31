@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Zine Arranger! For PDFs</title>
+</head>
+
+<style>
+:root {
+    --sheet-width: 850px;
+    --sheet-height: 1100px;
+    
+    --page-width: 425px;
+    --page-height: 275px;
+    
+    --page-vw: 25vw;
+    --pagevh: 50vh;
+    
+    --sheet-scale: 1;
+}
+
+* {
+    image-resolution: 300dpi;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    background-color: #DDD;
+}
+
+p {
+    margin: 5px;
+    font-family: "Garamond", "Georgia", serif;
+}
+
+h1 {
+    font-family: "Garamond", "Georgia", serif;
+    font-size: 36pt;
+    font-weight: bold;
+}
+
+button {
+    margin: 10px;
+    padding: 10px;
+}
+
+input {
+    margin: 5px 5px 0px 15px;
+}
+
+.num-input {
+    background-color: #FFF;
+}
+
+.zine-sheet {
+    width: var(--sheet-width);
+    height: var(--sheet-height);
+    display: grid;
+    grid-template-areas:
+    "tl tr"
+    "bl br";
+}
+
+.qtr-side {
+    grid-template-areas:
+    "tl tr"
+    "bl br";
+}
+
+.qtr-top {
+    grid-template-areas:
+    "tl bl"
+    "tr br";
+}
+
+.eig-por {
+    grid-template-areas:
+    "tl tml tmr tr"
+    "bl bml bmr br"
+}
+
+.eig-lnd {
+    grid-template-areas:
+    "bl tl"
+    "bml tml"
+    "bmr tmr"
+    "br tr"
+}
+
+.half-por {
+    grid-template-areas:
+    "tl tr"
+}
+
+.half-ldn {
+    grid-template-areas:
+    "tr"
+    "tl"
+}
+    
+
+.zine-page {
+    width: var(--page-width);
+    height: var(--page-height);
+    padding: .2rem;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    flex: 1;
+}
+
+/*.zine-canvas {
+    flex: 1;
+}*/
+
+.tl {
+    grid-area: tl;
+}
+
+.tr {
+    grid-area: tr;
+}
+
+.bl {
+    grid-area: bl;
+}
+
+.br {
+    grid-area: br;
+}
+
+.tml {
+    grid-area: tml;
+}
+
+.tmr {
+    grid-area: tmr;
+}
+
+.bml {
+    grid-area: bml;
+}
+
+.bmr {
+    grid-area: bmr;
+}
+
+.rotate {
+    transform: rotate(180deg);
+}
+
+@media screen {
+    .zine-frame {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        margin: 12px;
+    }
+    
+    .zine-sheet {
+        margin: 12px;
+        transform: scale(var(--sheet-scale));
+        transform-origin: top left;
+    }
+    
+    .zine-page {
+        border: 2px solid black;
+    }
+    
+    .header {
+        margin: 12px 0px 0px 0px;
+        width: 100vw;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-around;
+    }
+    
+    .header-item {
+        width: 90%;
+        margin: 8px;
+        display: flex;
+        flex-direction: row;
+        align-items: left;
+    }
+}
+
+@media print {
+    @page {
+        margin: 0;
+        bleed: 0;
+    }
+    
+    .zine-sheet {
+        width: 100vw;
+        height: 100vh;
+        float: left;
+        /*gap: 1.5px;*/
+        page-break-after: always;
+        page-break-inside: avoid;
+        /*border: 4px dashed black;*/
+    }
+    
+    .zine-page {
+        /*padding: .2rem;*/
+        /*width: var(--page-vw)
+        height: var(--page-vh)*/
+        /*border: 2px solid black;*/
+    }
+    
+    .noprint {
+        display: none;
+    }
+}
+</style>
+
+<style id="page-orient-style">
+</style>
+
+
+<script src="./pdfjs/build/pdf.js"></script>
+
+<section class="header noprint">
+    <section class="header">
+        <header><h1>Zine Arranger!</h1></header>
+        <p>Convert a multi-page PDF into a zine!</p>
+        <p id="lbl-pc-mult">To avoid blank pages at the end, the page count should be a multiple of 8.</p>
+        <p id="folding-ins"></p>
+    </section>
+    <section class="header-item">
+        <p>Choose the PDF:</p>
+        <input type="file" id="selector"></input>
+    </section>
+    <section class="header-item">
+        <p>Once you've got your PDF, click the Print button to print or save it! (Choose "Save as PDF" or "Print to File" to save the zine.)</p>
+        <button onclick="window.print()">Print</button>
+    </section>
+    <section class="header-item" id="options">
+        <section id="opt-zinesize">
+            <p>Zine Size</p>
+            <input type="radio" id="zs-mini" name="zsize" checked="true" onchange="selectEighthSize()"></input>
+            <label for="zs-mini">Eighth Size (Minizine)</label><br>
+            <input type="radio" id="zs-qtr" name="zsize" onchange="selectQuarterSize()"></input>
+            <label for="zs-qtr">Quarter Size</label><br>
+            <input type="radio" id="zs-half" name="zsize" onchange="selectHalfSize()"></input>
+            <label for="zs-half">Half Size</label><br>
+        </section>
+        <section id="show-more-options" onclick="toggleAdvancedOptions()">
+            <input type="checkbox" id="show-more"></input>
+            <label for="show-more">Show Advanced Options</label>
+        </section>
+    </section>
+    <section id="advanced-options-a" class="header-item" style="display:none;">
+        <section id="opt-duplex">
+            <p>Print on:</p>
+            <input type="radio" id="dx-double" name="duplex" onchange="refreshSpecs()"></input>
+            <label for="dx-double">Both Sides</label><br>
+            <input type="radio" id="dx-single" name="duplex" checked="true" onchange="refreshSpecs()"></input>
+            <label for="dx-single">One Side</label><br>
+        </section>
+        <section id="opt-orient">
+            <p>Zine Orientation:</p>
+            <input type="radio" id="ori-portrait" name="paper-orient" checked="true" onchange="refreshSpecs()"></input>
+            <label for="ori-portrait">Portrait</label><br>
+            <input type="radio" id="ori-landscape" name="paper-orient" onchange="refreshSpecs()"></input>
+            <label for="ori-landscape">Landscape</label><br>
+        </section>
+        <section id="opt-spine">
+            <p>Booklet spine:</p>
+            <input type="radio" id="spine-side" name="spine-orient" checked="true" onchange="refreshSpecs()"></input>
+            <label for="spine-side">Side</label><br>
+            <input type="radio" id="spine-top" name="spine-orient" onchange="refreshSpecs()"></input>
+            <label for="spine-top">Top</label><br>
+            <input type="checkbox" id="flip-bc" onchange="refreshSpecs()"></input>
+            <label id="flip-bc-label" for="flip-bc">Flip Back Cover (for Top-Fold Zines)</label>
+        </section>
+    </section>
+    <section id="advanced-options-b" class="header-item" style="display:none;">
+        <section id="opt-ratio">
+            <p>Paper Size</p>
+            <input type="number" class="num-input" id="rt-width" min="0.25" max="1100" value="8.5" onchange="refreshSpecs()"></input>
+            <label id="rt-width-label" for="rt-width">Width</label><br>
+            <input type="number" class="num-input" id="rt-height" min="0.25" max="1100" value="11" onchange="refreshSpecs()"></input>
+            <label id="rt-height-label" for="rt-height">Height</label><br><input type="radio" id="page-inches" name="page-unit" checked="true" onchange="refreshSpecs()"></input>
+            <label for="page-inches">Inches</label><br>
+            <input type="radio" id="page-mm" name="page-unit" onchange="refreshSpecs()"></input>
+            <label for="page-mm">Millimeters</label>
+        </section>
+        <section id="opt-page-presets">
+            <button id="page-us-letter" onclick="setPageUSLetter()">US Letter</button><br>
+            <button id="page-a4" onclick="setPageA4()">A4</button><br>
+        </section>
+    </section>
+    <section class="header-item">
+        <p></p>
+    </section>
+</section>
+<section class="zine" id="zine" style="display:none">
+</section>
+
+<script>
+    var eighthSize = true; // whether the zine is an eighth size mini (false=either quarter or half depending on halfSize bit)
+    var halfSize = false; // whether the zine is a half-size mini (false=either eighth or quarter, depending on eighthSize bit)
+    var doubleSided = false; // whether we are printing double-sided
+    var zinePortrait = true; // whether the zine is portrait orientation (false=landscape)
+    var spineSide = true; // whether the spine is on the side of the zine (false=top spine)
+    
+    var flipBackCover = true; // whether to flip the back cover on top fold zines (false = cover is right-side up from outside; true = cover right side up when viewed as last page)
+    
+    var pagePortrait = false; // whether the printed page is portrait orientation (calculated based on above values)
+
+    var aspectWidth = 11;
+    var aspectHeight = 8.5;
+    var divHoriz = 4; // number of horizontal pages per sheet
+    var divVert = 2; // number of vertical pages per sheet
+    var pagerat = 5.5/4.25;
+    var sheetWidth = 1100;
+    var sheetHeight = 850;
+    var pageWidth = 275;
+    var pageHeight = 425;
+    var pageCount = 0;
+    
+    var specsString = "e1ps";
+    
+    var pgunit = "in";
+    
+    function toggleAdvancedOptions() {
+        if(document.getElementById("show-more").checked) {
+            document.getElementById("advanced-options-a").style.display = "flex";
+            document.getElementById("advanced-options-b").style.display = "flex";
+        } else {
+            document.getElementById("advanced-options-a").style.display = "none";
+            document.getElementById("advanced-options-b").style.display = "none";
+        }
+    }
+    
+    function selectEighthSize() {
+        document.getElementById("dx-single").checked = true;
+        document.getElementById("ori-portrait").checked = true;
+        document.getElementById("spine-side").checked = true;
+        refreshSpecs();
+    }
+    
+    function selectQuarterSize() {
+        document.getElementById("dx-double").checked = true;
+        document.getElementById("ori-portrait").checked = true;
+        document.getElementById("spine-side").checked = true;
+        refreshSpecs();
+    }
+    
+    function selectHalfSize() {
+        document.getElementById("dx-double").checked = true;
+        document.getElementById("spine-side").checked = document.getElementById("ori-portrait").checked;
+        refreshSpecs();
+    }
+    
+    function setPageUSLetter() {
+        document.getElementById("page-inches").checked = true;
+        document.getElementById("rt-width").value = "8.5";
+        document.getElementById("rt-height").value = "11";
+        refreshSpecs();
+    }
+    
+    function setPageA4() {
+        document.getElementById("page-mm").checked = true;
+        document.getElementById("rt-width").value = "210";
+        document.getElementById("rt-height").value = "297";
+        refreshSpecs();
+    }
+    
+    // refreshes all parameters
+    function refreshSpecs() {
+        // poll main layout options
+        eighthSize = document.getElementById("zs-mini").checked;
+        halfSize = document.getElementById("zs-half").checked;
+        doubleSided = document.getElementById("dx-double").checked;
+        zinePortrait = document.getElementById("ori-portrait").checked;
+        spineSide = document.getElementById("spine-side").checked;
+        flipBackCover = document.getElementById("flip-bc").checked;
+        
+        specsString = "";
+        if(eighthSize) {
+            specsString = specsString + "e";
+        } else if(halfSize) {
+            specsString = specsString + "h";
+        } else {
+            specsString = specsString + "q";
+        }
+        
+        if(doubleSided) {
+            specsString = specsString + "2";
+        } else {
+            specsString = specsString + "1";
+        }
+        
+        if(zinePortrait) {
+            specsString = specsString + "p";
+        } else {
+            specsString = specsString + "l";
+        }
+        
+        if(spineSide) {
+            specsString = specsString + "s";
+        } else {
+            specsString = specsString + "t";
+        }
+        document.getElementById("folding-ins").innerHTML = "<a href=\"folding.html?" + specsString + "\">Folding Instructions</a>";
+        
+        var pgmult = 0
+        
+        if(eighthSize) {
+            if(doubleSided) {
+                pgmult = 16;
+            } else {
+                pgmult = 8;
+            }
+        } else if(halfSize) {
+            pgmult = 4;
+        } else { // quarter size
+            if(doubleSided) {
+                pgmult = 8;
+            } else {
+                pgmult = 4;
+            }
+        }
+         
+        
+        document.getElementById("lbl-pc-mult").innerHTML = "To avoid blank pages at the end, the page count should be a multiple of " + pgmult + ".";
+        
+        // calculate paper orientation based on above options
+        pagePortrait = ((eighthSize || halfSize) && !zinePortrait) || (!(eighthSize || halfSize) && zinePortrait);
+        
+        // update aspect ratio labels & poll aspect ratio values
+        // this is based on the paper orientation
+        if(pagePortrait) {
+            document.getElementById("rt-width-label").innerHTML = "Width";
+            document.getElementById("rt-height-label").innerHTML = "Height";
+            
+            aspectWidth = document.getElementById("rt-width").value;
+            aspectHeight = document.getElementById("rt-height").value;
+        } else {
+            document.getElementById("rt-width-label").innerHTML = "Height";
+            document.getElementById("rt-height-label").innerHTML = "Width";
+            
+            aspectWidth = document.getElementById("rt-height").value;
+            aspectHeight = document.getElementById("rt-width").value;
+        }
+        
+        // calculate the zine page aspect ratio
+        if(eighthSize) {
+            if(zinePortrait) {
+                divHoriz = 4;
+                divVert = 2;
+            } else {
+                divVert = 4;
+                divHoriz = 2;
+            }
+        } else {
+            if(halfSize) {
+                if(zinePortrait) {
+                    divVert = 1;
+                    divHoriz = 2;
+                } else {
+                    divHoriz = 1;
+                    divVert = 2;
+                }
+            } else { // quarter size
+                divVert = 2;
+                divHoriz = 2;
+            }
+        }
+        
+        pagerat = (aspectWidth / divHoriz) / (aspectHeight / divVert);
+    
+        // update the CSS dimensions
+        var scl = aspectWidth;
+        if(scl == 0) {
+            scl = 1;
+        }
+        while(scl < 1000) {
+            scl *= 2;
+        }
+        var scl = scl / aspectWidth; // frame width is 574; this is 550 x2 (will be scaled by 0.5 in CSS)
+        scl = Math.floor(scl,1);
+        sheetWidth = scl*aspectWidth;
+        sheetHeight = scl*aspectHeight;
+        
+        
+        pgunit = "in";
+        
+        if(document.getElementById("page-mm").checked) {
+            pgunit = "mm";
+        }
+        
+        pageWidth = Math.floor(sheetWidth / divHoriz);
+        pageHeight = Math.floor(sheetHeight / divVert);
+        
+        
+        var rt = document.querySelector(':root');
+        rt.style.setProperty('--sheet-width', sheetWidth + "px");
+        rt.style.setProperty('--sheet-height', sheetHeight + "px");
+        rt.style.setProperty('--page-width', pageWidth + "px");
+        rt.style.setProperty('--page-height', pageHeight + "px");
+        rt.style.setProperty('--sheet-scale', (550 / sheetWidth));
+        
+        selectFile(); // refresh the PDF if one has already been selected
+    }
+    
+    function selectFile() {
+        if(document.getElementById("selector").files.length > 0) {
+            document.getElementById("zine").style.display = "block";
+            var fl = document.getElementById("selector").files[0];
+            var nms = fl.name.split(".");
+            if(nms.length > 1) {
+                document.title = nms[0] + "-Printable." + nms[1];
+            } else {
+                document.title = fl.name + "-Printable.pdf";
+            }
+            var url = URL.createObjectURL(fl);
+            
+            const loadingTask = pdfjsLib.getDocument(url);
+            (async () => {
+                const pdf = await loadingTask.promise;
+                
+                var actualPageCount = pdf.numPages;
+                pageCount = actualPageCount;
+                arrangeZineSheets();
+                //
+                // Fetch the first page
+                //
+                for(var i = 1; i<actualPageCount+1; i++) {
+                    const page = await pdf.getPage(i);
+                    var viewport = page.getViewport({ scale: 1 });
+                    var scale;
+                    console.log("VPW: " + viewport.width + " || VPH: " + viewport.height + " || pagrat: " + pagerat + " || pageWidth: " + pageWidth + " || pageHeight: " + pageHeight);
+                    if(viewport.width / viewport.height >= pagerat) {
+                        scale = pageWidth / viewport.width;
+                    } else {
+                        scale = pageHeight / viewport.height;
+                    }
+                    //const scale = 72 / 4 * 11 / viewport.width;
+                    viewport = page.getViewport({ scale: scale });
+                    
+                    const outputScale = 3;
+
+                    //
+                    // Prepare canvas using PDF page dimensions
+                    //
+                    const canvas = document.getElementById("p" + (i-1));
+                    const context = canvas.getContext("2d");
+
+                    canvas.width = Math.floor(viewport.width * outputScale);
+                    canvas.height = Math.floor(viewport.height * outputScale);
+                    canvas.style.width = Math.floor(viewport.width) + "px";
+                    canvas.style.height = Math.floor(viewport.height) + "px";
+
+                    const transform = outputScale !== 1
+                      ? [outputScale, 0, 0, outputScale, 0, 0] 
+                      : null;
+
+                    //
+                    // Render PDF page into canvas context
+                    //
+                    const renderContext = {
+                      canvasContext: context,
+                      transform,
+                      viewport,
+                    };
+                    page.render(renderContext);
+                }
+          })();
+        }
+    }
+    
+    function arrangeZineSheets() {
+        // clear the existing zine contents
+        document.getElementById("zine").innerHTML = "";
+        var sheetsHTML = "";
+        // compile the grid array
+        var gridType = "";
+        var rt = " rotate";
+        
+        if(eighthSize) {
+            // orientation determines gridType, for both duplex & single (I think--not 100% on single)
+            if(zinePortrait) {
+                gridType = "eig-por";
+            } else {
+                gridType = "eig-lnd";
+            }
+            
+            if(doubleSided) {  // EIGHTH DOUBLE
+                if(pageCount % 16 != 0) { // round up to nearest 2 sides
+                    pageCount += 16-(pageCount%16)
+                }
+                
+                if(zinePortrait) {
+                    setPageOrientation(false);
+                    
+                    if(spineSide) {  // eight duplex portrait side
+                        for(let i = 0; i < pageCount / 16; i++) {
+                            var s = 8 * i;
+                            var e = pageCount - s - 1;
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+4) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tml" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-4) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-7) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+7) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl\"><canvas class=\"zine-canvas\" id=\"p" + (s+3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bml\"><canvas class=\"zine-canvas\" id=\"p" + (e-3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2 + 1) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+6) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tml" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-6) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-5) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+5) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bml\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr\"><canvas class=\"zine-canvas\" id=\"p" + (e-2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (s+2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    } else {  // eight duplex portrait top
+                        for(let i = 0; i < pageCount / 16; i++) {
+                            var s = 8 * i;
+                            var e = pageCount - s - 1;
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tml" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-4) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-7) + "\"></canvas></section>";
+                            if(!flipBackCover && i == 0) {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            } else {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            }
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bml\"><canvas class=\"zine-canvas\" id=\"p" + (s+4) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+7) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2 + 1) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tml" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-6) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-5) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bml\"><canvas class=\"zine-canvas\" id=\"p" + (s+6) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+5) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (s+2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    }
+                } else {
+                    setPageOrientation(true);
+                    
+                    if(spineSide) { // eight duplex landscape side
+                        for(let i = 0; i < pageCount / 16; i++) {
+                            var s = 8 * i;
+                            var e = pageCount - s - 1;
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tml" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+4) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+7) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bml\"><canvas class=\"zine-canvas\" id=\"p" + (e-4) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-7) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2 + 1) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt +"\"><canvas class=\"zine-canvas\" id=\"p" + (e-2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tml" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-5) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-6) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bml\"><canvas class=\"zine-canvas\" id=\"p" + (s+5) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+6) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    } else {  // eight duplex landscape top
+                        for(let i = 0; i < pageCount / 16; i++) {
+                            var s = 8 * i;
+                            var e = pageCount - s - 1;
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+7) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tml" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-7) + "\"></canvas></section>";
+                            if(!flipBackCover && i == 0) {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            } else {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            }
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + rt +"\"><canvas class=\"zine-canvas\" id=\"p" + (s+4) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bml" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-4) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2 + 1) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+5) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tml" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-5) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+6) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bml" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-6) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    }
+                }
+            } else { // standard 8-page mini algo
+                if(pageCount % 8 != 0) { // round up to nearest 2 sides
+                    pageCount += 8-(pageCount%8)
+                }
+                
+                if(zinePortrait) { // eight single portrait
+                    setPageOrientation(false);
+                    
+                    if(spineSide) {
+                        for(let i = 0; i < pageCount / 8; i++) {
+                            var s = 4 * i;
+                            var e = pageCount - s - 1;
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tml" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl\"><canvas class=\"zine-canvas\" id=\"p" + (e-2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bml\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    } else {
+                        for(let i = 0; i < pageCount / 8; i++) {
+                            var s = 4 * i;
+                            var e = pageCount - s - 1;
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i) + "\">";
+                            if(!flipBackCover && i == 0) {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            } else {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            }
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tml" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bml" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr\"><canvas class=\"zine-canvas\" id=\"p" + (e-3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    }
+                } else { // eight single landscape
+                    setPageOrientation(true);
+                    
+                    if(spineSide) {
+                        for(let i = 0; i < pageCount / 8; i++) {
+                            var s = 4 * i;
+                            var e = pageCount - s - 1;
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tml" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bml" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    } else {
+                        for(let i = 0; i < pageCount / 8; i++) {
+                            var s = 4 * i;
+                            var e = pageCount - s - 1;
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tml" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+3) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl\"><canvas class=\"zine-canvas\" id=\"p" + (e-2) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bml" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            if(!flipBackCover && i == 0) {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            } else {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page bmr\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            }
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    }
+                }    
+            }        
+        } else if(halfSize) {    // HALF SIZE (PORTRAIT & LANDSCAPE ONLY)
+            if(pageCount % 4 != 0) {
+                pageCount += 4-(pageCount%4);
+            }
+            
+            if(zinePortrait) {
+                gridType = "half-por";
+                
+                for(let i = 0; i < pageCount / 4; i++) {
+                    var s = 2*i;
+                    var e = pageCount - s - 1;
+                    
+                    sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2) + "\">";
+                    sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                    sheetsHTML = sheetsHTML + "<section class=\"zine-page tr\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                    sheetsHTML = sheetsHTML + "</section>";
+                    
+                    sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2+1) + "\">";
+                    sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                    sheetsHTML = sheetsHTML + "<section class=\"zine-page tr\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                    sheetsHTML = sheetsHTML + "</section>";                 
+                }
+            } else {
+                gridType = "half-lnd";
+                
+                for(let i = 0; i < pageCount / 4; i++) {
+                    var s = 2*i;
+                    var e = pageCount - s - 1;
+                    
+                    sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i) + "\">";
+                    sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + "\"><canvas class=\"zine-canvas\" id=\"p" + s + "\"></canvas></section>";
+                    if(!flipBackCover && i == 0) {
+                        sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + e + "\"></canvas></section>";
+                    } else {
+                        sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + "\"><canvas class=\"zine-canvas\" id=\"p" + e + "\"></canvas></section>";
+                    }
+                    sheetsHTML = sheetsHTML + "</section>";
+                    
+                    sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i) + "\">";
+                    sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + s+1 + "\"></canvas></section>"; 
+                    sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + e-1 + "\"></canvas></section>";
+                    sheetsHTML = sheetsHTML + "</section>";
+                }
+            }
+        } else { // quarter size
+            /*if(spineSide) {
+                gridType = "qtr-side"; // grid for quarter-sized side fold
+            } else {
+                gridType = "qtr-top"; // grid for quarter-sized top fold
+            }*/
+            gridType = "qtr-side"; // just doing the default grid cause we'll rearrange in each block now
+            
+            if(doubleSided) { // QUARTER DOUBLE
+                if(pageCount % 8 != 0) { // round up to nearest 2 sides
+                    pageCount += 8-(pageCount % 8);
+                }
+                
+                if(zinePortrait) {
+                    setPageOrientation(true);
+                    if(spineSide) { // quarter duplex portrait side
+                        for(let i = 0; i < pageCount / 8; i++) {
+                            var s = 2 * i;
+                            var e = pageCount - s - 1;
+                            var m = s + (pageCount / 4); // technically = s + 2(pageCount / 8), but I have reduced; 2 is pages per corner, pageCount/8 is number of sheets
+                            var n = e - (pageCount / 4);
+                        
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (n) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (m) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                                        
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2+1) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (m+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (n-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    } else { // quarter duplex portrait top
+                        for(let i = 0; i < pageCount / 8; i++) {
+                            var s = 2 * i;
+                            var e = pageCount - s - 1;
+                            var m = s + (pageCount / 4); // technically = s + 2(pageCount / 8), but I have reduced; 2 is pages per corner, pageCount/8 is number of sheets
+                            var n = e - (pageCount / 4);
+                        
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (n) + "\"></canvas></section>";
+                            if(!flipBackCover && i == 0) {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            } else {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tr\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            }
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (m) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                                        
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2+1) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (n-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (m+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    }
+                } else {
+                    setPageOrientation(false);
+                    if(spineSide) { // quarter duplex landscape side
+                        for(let i = 0; i < pageCount / 8; i++) {
+                            var s = 2 * i;
+                            var e = pageCount - s - 1;
+                            var m = s + (pageCount / 4); // technically = s + 2(pageCount / 8), but I have reduced; 2 is pages per corner, pageCount/8 is number of sheets
+                            var n = e - (pageCount / 4);
+                        
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (n) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (m) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                                        
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2+1) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (m+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br" + "\"><canvas class=\"zine-canvas\" id=\"p" + (n-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    } else { // quarter duplex landscape top
+                        for(let i = 0; i < pageCount / 8; i++) {
+                            var s = 2 * i;
+                            var e = pageCount - s - 1;
+                            var m = s + (pageCount / 4); // technically = s + 2(pageCount / 8), but I have reduced; 2 is pages per corner, pageCount/8 is number of sheets
+                            var n = e - (pageCount / 4);
+                        
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (n) + "\"></canvas></section>";
+                            if(!flipBackCover && i == 0) {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            } else {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tr\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            }
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (m) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                                        
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet " + gridType + "\" id=\"s" + (i*2+1) + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (n-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (m+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    }
+                }
+            } else {    // QUARTER SINGLE
+                if(pageCount % 4 != 0) { // round up to nearest 4 multiple
+                    pageCount += 4-(pageCount % 4);
+                }
+                
+                if(zinePortrait) {
+                    setPageOrientation(true);
+                    if(spineSide) { // quarter single portrait side
+                        for(let i = 0; i < pageCount / 4; i++) {
+                            var s = 2 * i;
+                            var e = pageCount - s - 1;
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet\" id=\"s" + i + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";    
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }       
+                    } else { // quarter single portrait top
+                        for(let i = 0; i < pageCount / 4; i++) {
+                            var s = 2 * i;
+                            var e = pageCount - s - 1;
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet\" id=\"s" + i + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            if(!flipBackCover && i == 0) {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            } else {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            }
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";    
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    }
+                } else {
+                    setPageOrientation(false);
+                    if(spineSide) { // quarter single landscape side
+                        for(let i = 0; i < pageCount / 4; i++) {
+                            var s = 2 * i;
+                            var e = pageCount - s - 1;
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet\" id=\"s" + i + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";    
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    } else { // quarter single landscape top
+                        for(let i = 0; i < pageCount / 4; i++) {
+                            var s = 2 * i;
+                            var e = pageCount - s - 1;
+                            
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-sheet\" id=\"s" + i + "\">";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page tl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e-1) + "\"></canvas></section>";
+                            if(!flipBackCover && i == 0) {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            } else {
+                                sheetsHTML = sheetsHTML + "<section class=\"zine-page tr" + "\"><canvas class=\"zine-canvas\" id=\"p" + (e) + "\"></canvas></section>";
+                            }
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page bl" + rt + "\"><canvas class=\"zine-canvas\" id=\"p" + (s+1) + "\"></canvas></section>";
+                            sheetsHTML = sheetsHTML + "<section class=\"zine-page br" + "\"><canvas class=\"zine-canvas\" id=\"p" + (s) + "\"></canvas></section>";    
+                            sheetsHTML = sheetsHTML + "</section>";
+                        }
+                    }
+                }
+            }
+        }
+        
+        document.getElementById("zine").innerHTML = sheetsHTML;
+    }
+    
+    function setPageOrientation(prt) {
+        //document.getElementById("page-orient-style").innerHTML = "@media print { @page { size: " + aspectWidth + pgunit + " " + aspectHeight + pgunit + "; } }";
+        //document.getElementById("page-orient-style").innerHTML = "@media print { @page { size: " + sheetWidth + "px " + sheetHeight + "px; } }";
+        
+        if(prt) {
+            document.getElementById("page-orient-style").innerHTML = "@media print { @page { size: portrait; } }";
+        } else {
+            document.getElementById("page-orient-style").innerHTML = "@media print { @page { size: landscape; } }";
+        }
+    }
+            
+    
+    document.getElementById("selector").addEventListener("change", refreshSpecs, false);
+    refreshSpecs();
+</script>
+</html>
